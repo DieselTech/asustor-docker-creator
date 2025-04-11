@@ -6,7 +6,6 @@ import requests
 import re
 import zipfile
 import tarfile
-import tempfile
 import json
 from pathlib import Path
 
@@ -168,9 +167,16 @@ def main():
     if not ORIGINAL_APK.exists():
         raise FileNotFoundError(f"Original APK file not found: {ORIGINAL_APK}")
 
-    # Create temporary directory for version check
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_path = Path(temp_dir)
+    # Create temporary directory in script's directory
+    script_dir = Path(__file__).parent
+    temp_dir = script_dir / "_temp"
+    try:
+        # Ensure temp directory is clean
+        if temp_dir.exists():
+            shutil.rmtree(temp_dir)
+        temp_dir.mkdir()
+        
+        temp_path = temp_dir
         
         # Get latest Docker version
         latest_version = get_latest_docker_version()
@@ -229,11 +235,16 @@ def main():
         repack_tar(data_extract_dir, apk_extract_dir / "data.tar.gz")
 
         # Step 10: Create the updated APK
-        output_apk = Path(__file__).parent / f"docker_{latest_version}.apk"
+        output_apk = script_dir / f"docker_{latest_version}.apk"
         create_updated_apk(apk_extract_dir, output_apk)
 
         # Step 11: Send Discord notification
         send_discord_notification(latest_version, output_apk.name)
+
+    finally:
+        # Clean up temporary directory
+        if temp_dir.exists():
+            shutil.rmtree(temp_dir)
 
 if __name__ == "__main__":
     try:
